@@ -1,2 +1,2 @@
-# HomeCreditDefaultRisk
-Kaggle comeptition Home Credit Default Risk
+# Home Credit Default Risk
+Kaggle competition Home Credit Default Risk
