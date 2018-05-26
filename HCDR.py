@@ -73,19 +73,21 @@ if DEBUG:
 # In[30]:
 
 
-
-print('Merge with buro avg')
-buro_full = buro_full.merge(right=avg_buro_bal.reset_index(), how='left', on='SK_ID_BUREAU', suffixes=('', '_bur_bal'))
+print('Merge bureaus...')
+buro_full = bureau_df.merge(right=bureau_balance_df.reset_index(), how='left', on='SK_ID_BUREAU', suffixes=('', '_bur_bal'))
 
 print('Counting buro per SK_ID_CURR')
 nb_bureau_per_curr = buro_full[['SK_ID_CURR', 'SK_ID_BUREAU']].groupby('SK_ID_CURR').count()
-buro_full['SK_ID_BUREAU'] = buro_full['SK_ID_CURR'].map(nb_bureau_per_curr['SK_ID_BUREAU'])
+buro_full['SK_ID_BUREAU_cnt'] = buro_full['SK_ID_CURR'].map(nb_bureau_per_curr['SK_ID_BUREAU'])
 
 print('Averaging bureau')
 avg_buro = buro_full.groupby('SK_ID_CURR').mean()
 print(avg_buro.head())
 
-del buro, buro_full
+for col in avg_buro.columns:
+    avg_buro[col] = avg_buro[col].astype(np.float32)
+    
+del buro_full, bureau_df, bureau_balance_df
 gc.collect()
 # In[ ]:
 
