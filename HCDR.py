@@ -3,8 +3,6 @@
 
 # # Keras Classifier for Home Credit Default Risk
 
-# In[2]:
-
 import os
 import gc
 import pandas as pd
@@ -39,8 +37,21 @@ gc.collect()
 DEBUG = True
 # In[15]:
 
+def printlog(string, mode="LOG"):
+    """ Function to print a log string with a prefix """
+    if DEBUG:
+        if mode == "LOG":
+            print("#### ", string)
+        elif mode == "INFOBOX":
+            print("\n[#########################################################################\n", 
+                  string, 
+                  "\n]#########################################################################\n")
+        elif mode == "SILENT":
+            return
+    return
+
 def bureau_bal_transform(df):
-    print("Transforming bureau balance...")
+    printlog("Transforming bureau balance...")
     df = pd.concat([df, pd.get_dummies(df.STATUS, prefix='status')], axis=1).drop('STATUS', axis=1)
     buro_counts = df[['SK_ID_BUREAU', 'MONTHS_BALANCE']].groupby('SK_ID_BUREAU').count()
     df['buro_count'] = df['SK_ID_BUREAU'].map(buro_counts['MONTHS_BALANCE'])
@@ -49,30 +60,22 @@ def bureau_bal_transform(df):
     return avg_buro_bal
 
 bureau_balance_df = bureau_bal_transform(bureau_balance_df)
-
 gc.collect()
-
-if DEBUG:
-    print(bureau_balance_df.head())
+printlog(bureau_balance_df.head(), "INFOBOX")
 
 #%%
 def bureau_transform(df):
-    print("Transforming bureau ...")
+    printlog("Transforming bureau ...")
     df = pd.concat([df, pd.get_dummies(df.CREDIT_ACTIVE, prefix='ca_')], axis=1).drop('CREDIT_ACTIVE', axis=1)
     df = pd.concat([df, pd.get_dummies(df.CREDIT_CURRENCY, prefix='cu_')], axis=1).drop('CREDIT_CURRENCY', axis=1)
     df = pd.concat([df, pd.get_dummies(df.CREDIT_TYPE, prefix='ty_')], axis=1).drop('CREDIT_TYPE', axis=1)
     return df
 
 bureau_df = bureau_transform(bureau_df)
-
 gc.collect()
-
-if DEBUG:
-    print(bureau_df.head())
+printlog(bureau_df.head(), "INFOBOX")
 
 # In[30]:
-
-
 print('Merge bureaus...')
 buro_full = bureau_df.merge(right=bureau_balance_df.reset_index(), how='left', on='SK_ID_BUREAU', suffixes=('', '_bur_bal'))
 
@@ -82,7 +85,7 @@ buro_full['SK_ID_BUREAU_cnt'] = buro_full['SK_ID_CURR'].map(nb_bureau_per_curr['
 
 print('Averaging bureau')
 avg_buro = buro_full.groupby('SK_ID_CURR').mean()
-print(avg_buro.head())
+printlog(avg_buro.head(), "INFOBOX")
 
 for col in avg_buro.columns:
     avg_buro[col] = avg_buro[col].astype(np.float32)
