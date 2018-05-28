@@ -101,7 +101,7 @@ def prevapp_transform(df):
     days_feat = ["DAYS_FIRST_DRAWING", "DAYS_FIRST_DUE", "DAYS_LAST_DUE_1ST_VERSION", "DAYS_LAST_DUE", "DAYS_TERMINATION"]
     for f_d in days_feat:
         v365243 = df[f_d] == 365243.000000
-        df["is365243_" + f_d] = v365243
+        df["is365243_" + f_d] = v365243.astype(np.float32)
     prev_cat_features = [f_ for f_ in df.columns if df[f_].dtype == 'object']
     prev_dum = pd.DataFrame()
     for f_ in prev_cat_features:
@@ -112,24 +112,25 @@ def prevapp_transform(df):
     del prev_dum, v365243
     gc.collect()
     nb_prev_per_curr = df[['SK_ID_CURR', 'SK_ID_PREV']].groupby('SK_ID_CURR').count()
-    df['SK_ID_PREV_cnt'] = df['SK_ID_CURR'].map(nb_prev_per_curr['SK_ID_PREV'])
+    df['SK_ID_PREV_cnt'] = df['SK_ID_CURR'].map(nb_prev_per_curr['SK_ID_PREV']).astype(np.float32)
     df = df.groupby('SK_ID_CURR').mean() #High Memory Usage
     return df
 prev_app_df = to_float32(prev_app_df)
 gc.collect()
 prev_app_df = prevapp_transform(prev_app_df)
 gc.collect()
-printlog(prev_app_df.dtypes(), "INFOBOX")
+printlog(prev_app_df.dtypes, "INFOBOX")
 #%%
 pos_cash_df = pd.read_csv(os.path.join(input_dir, 'POS_CASH_balance.csv'), nrows=sample_size*MULT)
 def poscash_transform(df):
     printlog('Process POS_CASH...')
     df = pd.concat([df, pd.get_dummies(df['NAME_CONTRACT_STATUS'])], axis=1)
     nb_prevs = df[['SK_ID_CURR', 'SK_ID_PREV']].groupby('SK_ID_CURR').count()
-    df['SK_ID_PREV_cnt'] = df['SK_ID_CURR'].map(nb_prevs['SK_ID_PREV'])
+    df['SK_ID_PREV_cnt'] = df['SK_ID_CURR'].map(nb_prevs['SK_ID_PREV']).astype(np.float32)
     df = df.groupby('SK_ID_CURR').mean()
     return df
 
+pos_cash_df = to_float32(pos_cash_df)
 pos_cash_df = poscash_transform(pos_cash_df)
 gc.collect()
 printlog(pos_cash_df.head(), "INFOBOX")
@@ -139,11 +140,12 @@ def creditcard_transform(df):
     printlog('Process CREDIT CARD...')
     df = pd.concat([df, pd.get_dummies(df['NAME_CONTRACT_STATUS'], prefix='status_')], axis=1)
     nb_prevs = df[['SK_ID_CURR', 'SK_ID_PREV']].groupby('SK_ID_CURR').count()
-    df['SK_ID_PREV_cnt'] = df['SK_ID_CURR'].map(nb_prevs['SK_ID_PREV'])
+    df['SK_ID_PREV_cnt'] = df['SK_ID_CURR'].map(nb_prevs['SK_ID_PREV']).astype(np.float32)
     avg_cc_bal = df.groupby('SK_ID_CURR').mean()
     avg_cc_bal.columns = ['cc_' + f_ for f_ in avg_cc_bal.columns]
     return avg_cc_bal
 
+credit_card_df = to_float32(credit_card_df)
 credit_card_df = creditcard_transform(credit_card_df)
 gc.collect()
 printlog(credit_card_df.head(), "INFOBOX")
@@ -158,6 +160,7 @@ def installm_transform(df):
     avg_inst.columns = ['inst_' + f_ for f_ in avg_inst.columns]    
     return avg_inst
 
+install_df = to_float32(install_df)
 install_df = installm_transform(install_df)
 gc.collect()
 printlog(install_df.head(), "INFOBOX")
@@ -201,4 +204,3 @@ gc.collect()
 print('Shapes : ', app_train_df.shape, app_test_df.shape)
 
 #%%
-
