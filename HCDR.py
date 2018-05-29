@@ -42,10 +42,13 @@ def printlog(string, mode="LOG"):
             return
     return
 
-def to_float32(df):
+def to_singleprec(df):
+    ''' convert float64 to float 32 and int64 to int32 '''
     for col in df.columns:
         if df[col].dtypes == np.float64:
             df[col] = df[col].astype(np.float32)
+        if df[col].dtypes == np.int64:
+            df[col] = df[col].astype(np.int32)
     return df
  
 def bureau_bal_transform(df):
@@ -58,7 +61,7 @@ def bureau_bal_transform(df):
     return avg_buro_bal
 
 bureau_balance_df = bureau_bal_transform(bureau_balance_df)
-bureau_balance_df = to_float32(bureau_balance_df)
+bureau_balance_df = to_singleprec(bureau_balance_df)
 gc.collect()
 printlog(bureau_balance_df.head(), "INFOBOX")
 
@@ -71,7 +74,7 @@ def bureau_transform(df):
     return df
 
 bureau_df = bureau_transform(bureau_df)
-bureau_df = to_float32(bureau_df)
+bureau_df = to_singleprec(bureau_df)
 gc.collect()
 printlog(bureau_df.head(), "INFOBOX")
 
@@ -113,9 +116,11 @@ def prevapp_transform(df):
     gc.collect()
     nb_prev_per_curr = df[['SK_ID_CURR', 'SK_ID_PREV']].groupby('SK_ID_CURR').count()
     df['SK_ID_PREV_cnt'] = df['SK_ID_CURR'].map(nb_prev_per_curr['SK_ID_PREV']).astype(np.float32)
-    df = df.groupby('SK_ID_CURR').mean() #High Memory Usage
+    for col in df.columns:
+        df[col] = df[['SK_ID_CURR', 'SK_ID_PREV']].groupby('SK_ID_CURR').mean()
+#    df = df.groupby('SK_ID_CURR').mean() #High Memory Usage
     return df
-prev_app_df = to_float32(prev_app_df)
+prev_app_df = to_singleprec(prev_app_df)
 gc.collect()
 prev_app_df = prevapp_transform(prev_app_df)
 gc.collect()
@@ -124,13 +129,13 @@ printlog(prev_app_df.dtypes, "INFOBOX")
 pos_cash_df = pd.read_csv(os.path.join(input_dir, 'POS_CASH_balance.csv'), nrows=sample_size*MULT)
 def poscash_transform(df):
     printlog('Process POS_CASH...')
-    df = pd.concat([df, pd.get_dummies(df['NAME_CONTRACT_STATUS'])], axis=1)
+    df = pd.concat([df, pd.get_dummies(df['NAME_CONTRACT_STATUS']).astype(np.float32)], axis=1)
     nb_prevs = df[['SK_ID_CURR', 'SK_ID_PREV']].groupby('SK_ID_CURR').count()
     df['SK_ID_PREV_cnt'] = df['SK_ID_CURR'].map(nb_prevs['SK_ID_PREV']).astype(np.float32)
     df = df.groupby('SK_ID_CURR').mean()
     return df
 
-pos_cash_df = to_float32(pos_cash_df)
+pos_cash_df = to_singleprec(pos_cash_df)
 pos_cash_df = poscash_transform(pos_cash_df)
 gc.collect()
 printlog(pos_cash_df.head(), "INFOBOX")
@@ -138,14 +143,14 @@ printlog(pos_cash_df.head(), "INFOBOX")
 credit_card_df = pd.read_csv(os.path.join(input_dir, 'credit_card_balance.csv'), nrows=sample_size*MULT)
 def creditcard_transform(df):
     printlog('Process CREDIT CARD...')
-    df = pd.concat([df, pd.get_dummies(df['NAME_CONTRACT_STATUS'], prefix='status_')], axis=1)
+    df = pd.concat([df, pd.get_dummies(df['NAME_CONTRACT_STATUS'], prefix='status_').astype(np.float32)], axis=1)
     nb_prevs = df[['SK_ID_CURR', 'SK_ID_PREV']].groupby('SK_ID_CURR').count()
     df['SK_ID_PREV_cnt'] = df['SK_ID_CURR'].map(nb_prevs['SK_ID_PREV']).astype(np.float32)
     avg_cc_bal = df.groupby('SK_ID_CURR').mean()
     avg_cc_bal.columns = ['cc_' + f_ for f_ in avg_cc_bal.columns]
     return avg_cc_bal
 
-credit_card_df = to_float32(credit_card_df)
+credit_card_df = to_singleprec(credit_card_df)
 credit_card_df = creditcard_transform(credit_card_df)
 gc.collect()
 printlog(credit_card_df.head(), "INFOBOX")
@@ -160,7 +165,7 @@ def installm_transform(df):
     avg_inst.columns = ['inst_' + f_ for f_ in avg_inst.columns]    
     return avg_inst
 
-install_df = to_float32(install_df)
+install_df = to_singleprec(install_df)
 install_df = installm_transform(install_df)
 gc.collect()
 printlog(install_df.head(), "INFOBOX")
@@ -177,6 +182,9 @@ categorical_feats = [f for f in app_train_df.columns if app_train_df[f].dtype ==
 for f_ in categorical_feats:
     app_train_df[f_], indexer = pd.factorize(app_train_df[f_])
     app_test_df[f_] = indexer.get_indexer(app_test_df[f_])
+
+app_train_df = to_singleprec(app_train_df)
+app_test_df = to_singleprec(app_test_df)
 
 printlog('Merging all together...')
 app_train_df = app_train_df.merge(right=avg_buro.reset_index(), how='left', on='SK_ID_CURR')
@@ -201,6 +209,22 @@ app_test_df = app_test_df.merge(right=install_df.reset_index(), how='left', on='
 del pos_cash_df, credit_card_df, install_df
 gc.collect()
 
+printlog(app_train_df.dtypes, "INFOBOX")
 print('Shapes : ', app_train_df.shape, app_test_df.shape)
 
 #%%
+prev_app_df = pd.read_csv(os.path.join(input_dir, 'previous_application.csv'), nrows=sample_size)
+prev_app_df[ prev_app_df['SK_ID_CURR'] == 271877 ]
+df1 = prev_app_df.groupby('SK_ID_CURR').mean()
+df1.loc[271877]
+cols = ['SK_ID_CURR', 'SK_ID_PREV']
+prev_slice = prev_app_df[cols]
+df2 = prev_slice.groupby('SK_ID_CURR').mean()
+df2.loc[271877]
+df2 = pd.DataFrame()
+prev_num_features = [f_ for f_ in prev_app_df.columns 
+                     if (prev_app_df[f_].dtype != 'object' and f_ != 'SK_ID_CURR') ]
+for col in prev_num_features:
+    cols = ['SK_ID_CURR', col]
+    prev_slice = prev_app_df[cols]
+    df2 = pd.concat([df2, prev_slice.groupby('SK_ID_CURR').mean()])
