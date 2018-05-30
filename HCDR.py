@@ -11,7 +11,7 @@ from sklearn.preprocessing import LabelEncoder, MinMaxScaler, StandardScaler
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import roc_auc_score, roc_curve
 import matplotlib.pyplot as plt
-get_ipython().magic('matplotlib inline')
+#get_ipython().magic('matplotlib inline')
 print("Tensorflow version = ", tf.__version__)
 
 
@@ -21,7 +21,7 @@ input_dir = '../input'
 print('Input files:\n{}'.format(os.listdir(input_dir)))
 print('Loading data sets...')
 
-sample_size = 150000
+sample_size = 100000
 MULT=10
 bureau_df = pd.read_csv(os.path.join(input_dir, 'bureau.csv'), nrows=sample_size*MULT)
 bureau_balance_df = pd.read_csv(os.path.join(input_dir, 'bureau_balance.csv'), nrows=sample_size*MULT)
@@ -97,7 +97,6 @@ for col in avg_buro.columns:
 del buro_full, bureau_df, bureau_balance_df
 gc.collect()
 # In[ ]:
-prev_app_df = pd.read_csv(os.path.join(input_dir, 'previous_application.csv'), nrows=sample_size*MULT)
 ##TODO the DAYS_ columns have too many 365243 values
 def prevapp_transform(df):
     printlog('Process previous applications...')
@@ -116,14 +115,31 @@ def prevapp_transform(df):
     gc.collect()
     nb_prev_per_curr = df[['SK_ID_CURR', 'SK_ID_PREV']].groupby('SK_ID_CURR').count()
     df['SK_ID_PREV_cnt'] = df['SK_ID_CURR'].map(nb_prev_per_curr['SK_ID_PREV']).astype(np.float32)
-    for col in df.columns:
-        df[col] = df[['SK_ID_CURR', 'SK_ID_PREV']].groupby('SK_ID_CURR').mean()
-#    df = df.groupby('SK_ID_CURR').mean() #High Memory Usage
+#    df2 = pd.DataFrame()
+#    prev_num_features = [f_ for f_ in df.columns 
+#                         if (df[f_].dtype != 'object' and f_ != 'SK_ID_CURR') ]
+#    for col in prev_num_features:
+#        prev_slice = df[['SK_ID_CURR', col]]
+#        df2 = pd.concat([df2, prev_slice.groupby('SK_ID_CURR').mean()]) #highest memory usage
+#        print(col)
+#        del df[col]
+#        gc.collect()
+    df = df.groupby('SK_ID_CURR').mean() #High Memory Usage
     return df
-prev_app_df = to_singleprec(prev_app_df)
-gc.collect()
-prev_app_df = prevapp_transform(prev_app_df)
-gc.collect()
+#        prev_app_df = pd.read_csv(os.path.join(input_dir, 'previous_application.csv'), 
+#                                  nrows=BATCH_ROWS)
+BATCH_ROWS=  900000
+PREV_ROWS = 1670215
+prev_app_df= pd.DataFrame()
+for df in  pd.read_csv(os.path.join(input_dir, 'previous_application.csv'), 
+                       chunksize=BATCH_ROWS):
+        df = to_singleprec(df)
+        gc.collect()
+        df = prevapp_transform(df)
+        gc.collect()
+        prev_app_df = prev_app_df.append([df])
+        printlog(prev_app_df.shape)
+        
 printlog(prev_app_df.dtypes, "INFOBOX")
 #%%
 pos_cash_df = pd.read_csv(os.path.join(input_dir, 'POS_CASH_balance.csv'), nrows=sample_size*MULT)
@@ -213,18 +229,20 @@ printlog(app_train_df.dtypes, "INFOBOX")
 print('Shapes : ', app_train_df.shape, app_test_df.shape)
 
 #%%
-prev_app_df = pd.read_csv(os.path.join(input_dir, 'previous_application.csv'), nrows=sample_size)
-prev_app_df[ prev_app_df['SK_ID_CURR'] == 271877 ]
-df1 = prev_app_df.groupby('SK_ID_CURR').mean()
-df1.loc[271877]
-cols = ['SK_ID_CURR', 'SK_ID_PREV']
-prev_slice = prev_app_df[cols]
-df2 = prev_slice.groupby('SK_ID_CURR').mean()
-df2.loc[271877]
-df2 = pd.DataFrame()
-prev_num_features = [f_ for f_ in prev_app_df.columns 
-                     if (prev_app_df[f_].dtype != 'object' and f_ != 'SK_ID_CURR') ]
-for col in prev_num_features:
-    cols = ['SK_ID_CURR', col]
-    prev_slice = prev_app_df[cols]
-    df2 = pd.concat([df2, prev_slice.groupby('SK_ID_CURR').mean()])
+# =============================================================================
+# prev_app_df = pd.read_csv(os.path.join(input_dir, 'previous_application.csv'), nrows=sample_size)
+# prev_app_df[ prev_app_df['SK_ID_CURR'] == 271877 ]
+# df1 = prev_app_df.groupby('SK_ID_CURR').mean()
+# df1.loc[271877]
+# cols = ['SK_ID_CURR', 'SK_ID_PREV']
+# prev_slice = prev_app_df[cols]
+# df2 = prev_slice.groupby('SK_ID_CURR').mean()
+# df2.loc[271877]
+# df2 = pd.DataFrame()
+# prev_num_features = [f_ for f_ in prev_app_df.columns 
+#                      if (prev_app_df[f_].dtype != 'object' and f_ != 'SK_ID_CURR') ]
+# for col in prev_num_features:
+#     cols = ['SK_ID_CURR', col]
+#     prev_slice = prev_app_df[cols]
+#     df2 = pd.concat([df2, prev_slice.groupby('SK_ID_CURR').mean()])
+# =============================================================================
